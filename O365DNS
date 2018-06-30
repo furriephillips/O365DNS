@@ -1,0 +1,77 @@
+#!/bin/zsh
+#
+## O365DNS - Check a domain's DNS records, for O365ness
+## Requires: hl
+
+#
+## Usage
+#
+if [ $# -lt 1 ]; then
+
+  echo ""
+  echo "\e[0;31mYou have to define the domain: -"
+  echo ""
+  echo "\e[0;33mUsage: \e[0m$0 <domain>"
+  echo ""
+
+  exit 127
+
+fi
+
+DOMAIN=$1
+
+echo -e "\n\e[1;36mChecking Office 365 DNS Records for: \e[1;35m$DOMAIN \e[0m(\e[1;32mgreen is good\e[0m)"
+
+echo -e "\e[1;33mMX Records\e[0m"
+host -t MX $DOMAIN \
+    | hl NXDOMAIN red \
+    | hl "$DOMAIN" lightblue \
+    | hl '10 cluster8.eu.messagelabs.com.' green \
+    | hl '20 cluster8a.eu.messagelabs.com.' green \
+    | hl 'mail.protection.outlook.com' green
+
+echo -e "\e[1;33mTXT Records\e[0m"
+host -t TXT $DOMAIN \
+    | grep -e MS -e spf \
+    | hl NXDOMAIN red \
+    | hl "$DOMAIN" lightblue \
+    | hl 'MS=ms' green \
+    | hl 'v=spf1' green \
+    | hl 'include:spf.messagelabs.com' green \
+    | hl 'include:spf.protection.outlook.com' green \
+    | hl '-all' green
+
+echo -e "\e[1;33mCNAME Records\e[0m"
+for RR in autodiscover sip lyncdiscover enterpriseregistration enterpriseenrollment
+do
+    host -t CNAME $RR.$DOMAIN \
+        | hl NXDOMAIN red \
+        | hl 'no CNAME record' red \
+        | hl "autodiscover.$DOMAIN" lightblue \
+        | hl "sip.$DOMAIN" lightblue \
+        | hl "lyncdiscover.$DOMAIN" lightblue \
+        | hl "enterpriseregistration.$DOMAIN" lightblue \
+        | hl "enterpriseenrollment.$DOMAIN" lightblue \
+        | hl 'autodiscover.outlook.com' green \
+        | hl 'sipdir.online.lync.com' green \
+        | hl 'webdir.online.lync.com' green \
+        | hl 'enterpriseregistration.windows.net' green \
+        | hl 'enterpriseenrollment.manage.microsoft.com' green
+done
+
+echo -e "\e[1;33mSRV Records\e[0m"
+for RR in _sip._tls _sipfederationtls._tcp
+do
+    host -t SRV $RR.$DOMAIN \
+        | hl NXDOMAIN red \
+        | hl "_sip._tls.$DOMAIN" lightblue \
+        | hl "_sipfederationtls._tcp.$DOMAIN" lightblue \
+        | hl 'SRV record 100 1 443 sipdir.online.lync.com' green \
+        | hl 'SRV record 100 1 5061 sipfed.online.lync.com' green \
+        | hl "SRV record 100 1 443 sip.$DOMAIN" green \
+        | hl "SRV record 100 1 5061 sip.$DOMAIN" green
+done
+
+exit 0
+
+#EOF
